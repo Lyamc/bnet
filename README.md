@@ -1,86 +1,71 @@
 # bnet
 
-Sixteen Bend packages for network protocols. Each package is self-contained: copy that directory alone and its test apps still run with `bend`. There is no shared library for them to import.
+Bend networking. The repository is [github.com/Lyamc/bnet](https://github.com/Lyamc/bnet).
 
-The packages:
+Sixteen protocol packages live in this tree. Each one is a Bend module with a typed header, one predicate, and `label`. `apps/show.bend`, `apps/check.bend`, `apps/header.bend`, and `apps/session.bend` pass under Bend 2.0.5. A complete package parses and builds its on-wire header, and its session connects, exchanges two headers, and returns the expected errors. All 16 do.
 
-- `bnet-ethernet`
-- `bnet-ipv4`
-- `bnet-ipv6`
-- `bnet-modbus-rtu`
-- `bnet-modbus-tcp`
-- `bnet-bacnet`
-- `bnet-arcnet`
-- `bnet-http`
-- `bnet-quic`
-- `bnet-arp`
-- `bnet-udp`
-- `bnet-tcp`
-- `bnet-dns`
-- `bnet-tls`
-- `bnet-websocket`
-- `bnet-mqtt`
+Checked 2026-11-06.
 
-## Shared layout
+| Stage | Count |
+| --- | ---: |
+| Complete | 16 |
+| In progress, tested and working | 0 |
+| In progress, not tested or not working | 0 |
+| Not implemented yet | 0 |
+| Total | 16 |
 
-Every package has the same relative paths:
+## Results
 
-- `README.md` — protocol, import line, and the `bend` command plus expected stdout for each test app
-- `Protocol.bend` — the one public module
-- `apps/show.bend` — calls `label` and prints it
-- `apps/check.bend` — calls that package's predicate and prints it
+The result names match a pass / conditional pass / fail / skip chart.
 
-In-package apps import the public module with a relative path:
+| Result | Meaning | Count | Share | |
+| --- | --- | ---: | ---: | --- |
+| pass | Complete. Parses and builds the on-wire header, and `session` prints the expected lines. | 16 | 100% | `################` |
+| conditional pass | In progress. `show` and `check` exit 0 and print the expected line. | 0 | 0% | |
+| fail | In progress. The package is present and a test is missing or does not pass. | 0 | 0% | |
+| skip | Not implemented yet. No package. | 0 | 0% | |
+| | | 16 | | |
 
-```
-import ./../Protocol.bend as Net
-```
+| Protocol | Package | Result |
+| --- | --- | --- |
+| Ethernet II | `bnet-ethernet` | pass |
+| IPv4 | `bnet-ipv4` | pass |
+| IPv6 | `bnet-ipv6` | pass |
+| Modbus RTU | `bnet-modbus-rtu` | pass |
+| Modbus TCP | `bnet-modbus-tcp` | pass |
+| BACnet/IP | `bnet-bacnet` | pass |
+| ARCnet | `bnet-arcnet` | pass |
+| HTTP | `bnet-http` | pass |
+| QUIC | `bnet-quic` | pass |
+| ARP | `bnet-arp` | pass |
+| UDP | `bnet-udp` | pass |
+| TCP | `bnet-tcp` | pass |
+| DNS | `bnet-dns` | pass |
+| TLS | `bnet-tls` | pass |
+| WebSocket | `bnet-websocket` | pass |
+| MQTT | `bnet-mqtt` | pass |
 
-## Hyphen-free imports
+## Layout
 
-The directories are named `bnet-<slug>`. Bend 2.0.5 treats `-` as syntax, so a hyphen inside an `import` path is not the form these packages publish. Each package has a sibling alias `bnet_<slug>` (hyphens in the slug become underscores) that points at the same tree. From a program in `imports/`, the import line is:
+The packages are directories in this repository. Each protocol later moves to its own repository, and this tree pulls those repositories in as git submodules. Until that split, clone this repository and the packages are already here.
 
-```
-import ../bnet_<slug>/Protocol.bend as Net
-```
+`bnet-wire` is the capture tool beside the sixteen. It loads a pcap through libpcap (Npcap `wpcap.dll` on Windows) and prints one summary line. Its `show`, `check`, and fixture `read` pass. It is not one of the sixteen rows in the chart. It stays in this repository with the protocol packages.
 
-The sixteen lines are:
-
-```
-import ../bnet_ethernet/Protocol.bend as Net
-import ../bnet_ipv4/Protocol.bend as Net
-import ../bnet_ipv6/Protocol.bend as Net
-import ../bnet_modbus_rtu/Protocol.bend as Net
-import ../bnet_modbus_tcp/Protocol.bend as Net
-import ../bnet_bacnet/Protocol.bend as Net
-import ../bnet_arcnet/Protocol.bend as Net
-import ../bnet_http/Protocol.bend as Net
-import ../bnet_quic/Protocol.bend as Net
-import ../bnet_arp/Protocol.bend as Net
-import ../bnet_udp/Protocol.bend as Net
-import ../bnet_tcp/Protocol.bend as Net
-import ../bnet_dns/Protocol.bend as Net
-import ../bnet_tls/Protocol.bend as Net
-import ../bnet_websocket/Protocol.bend as Net
-import ../bnet_mqtt/Protocol.bend as Net
-```
-
-`imports/<slug>.bend` is the shipped program that uses that line and calls `label`. Its header states the `bend` command and the expected stdout.
-
-## Running
-
-From a package directory:
+A package directory holds `README.md`, `Protocol.bend`, and `apps/`. `show`, `check`, and `header` exercise the codec. `apps/Exchange.bend` is the shared client and server. `server` listens on `127.0.0.1` for one header, and `client` sends one header to it. Start the server first. Ports run from 19100 for Ethernet through 19115 for MQTT. `session` starts both in one process: it connects, exchanges two headers, and then checks a wrong reply, a closed peer, a silent peer, and a refused port. `BNET_MODE` on the server selects `bad`, `reset`, or `silent`. From that directory:
 
 ```
 bend apps/show.bend
 bend apps/check.bend
+bend apps/header.bend
+bend apps/server.bend
+bend apps/client.bend
+bend apps/session.bend
 ```
 
-From this workspace:
+Bend 2.0.5 treats `-` as syntax in an import path. Each directory `bnet-<name>` has a sibling symlink `bnet_<name>` for imports from outside the package:
 
 ```
-bend bnet-ethernet/apps/show.bend
-bend imports/ethernet.bend
+import ../bnet_ethernet/Protocol.bend as Net
 ```
 
-Use the installed Bend 2.0.5 compiler. These apps are checked and run with `bend <file>`. They do not need a native build.
+Inside a package, `show`, `check`, and `header` import `./../Protocol.bend`. `client`, `server`, and `session` import `./Exchange.bend`. `imports/<name>.bend` is the program at the repository root that uses the symlink.
